@@ -308,6 +308,7 @@ button:disabled { cursor: default; opacity: 0.55; }
   -webkit-user-select: text;
   user-select: text;
 }
+.paste-zone:empty::before { content: attr(data-placeholder); pointer-events: none; }
 .paste-zone:focus { outline: none; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .paste-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
 .paste-actions .note { font-size: 13px; color: var(--muted); }
@@ -317,13 +318,14 @@ button:disabled { cursor: default; opacity: 0.55; }
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.92);
+  background: #000;
+  display: flex;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x pan-y pinch-zoom;
   padding: calc(env(safe-area-inset-top) + 56px) 0 calc(env(safe-area-inset-bottom) + 16px);
 }
-.lightbox img { display: block; margin: 0 auto; max-width: none; }
+.lightbox img { display: block; margin: auto; max-width: none; flex-shrink: 0; height: auto; }
 .lightbox-bar {
   position: fixed;
   top: calc(env(safe-area-inset-top) + 6px);

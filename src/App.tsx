@@ -8,6 +8,8 @@ import Field from './components/Field';
 import ChainTable from './components/ChainTable';
 import ChoiceList from './components/ChoiceList';
 import TopBar from './components/TopBar';
+import ImagePaste from './components/ImagePaste';
+import { releaseShots } from './images';
 
 const QTYPE_OPTS = QTYPES.map((q) => ({ v: q, label: q }));
 const MODE_OPTS: { v: Mode; label: string }[] = [
@@ -40,6 +42,7 @@ export default function App() {
         busy={false}
         needsConfirm={!exported}
         onNew={() => {
+          releaseShots(sheet.shots);
           dispatch({ type: 'reset' });
           setExported(false);
         }}
@@ -86,6 +89,18 @@ function Form({ sheet, act }: { sheet: Sheet; act: (a: Action) => void }) {
           <h3>結果</h3>
           <Chips label="結果" options={RESULTS} value={sheet.result} onChange={(v) => act({ type: 'result', value: v })} allowClear />
         </div>
+      </Card>
+
+      <Card title="截圖">
+        <ImagePaste
+          shots={sheet.shots}
+          onAdd={(shots) => act({ type: 'addShots', shots })}
+          onRemove={(id) => {
+            const shot = sheet.shots.find((s) => s.id === id);
+            if (shot) URL.revokeObjectURL(shot.url);
+            act({ type: 'removeShot', id });
+          }}
+        />
       </Card>
 
       <Card title="Premise（前提 / 事實）">

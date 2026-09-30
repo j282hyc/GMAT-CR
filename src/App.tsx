@@ -1,6 +1,6 @@
-import { useReducer, useState, type ReactNode } from 'react';
+import { useEffect, useReducer, useState, type ReactNode } from 'react';
 import {
-  QTYPES, RESULTS, initialSheet, reducer,
+  QTYPES, RESULTS, hasContent, initialSheet, reducer,
   type Action, type Mode, type Row, type Sheet, type TableKey, type TextField,
 } from './sheet';
 import Chips from './components/Chips';
@@ -10,6 +10,8 @@ import ChoiceList from './components/ChoiceList';
 import TopBar from './components/TopBar';
 import ImagePaste from './components/ImagePaste';
 import { releaseShots } from './images';
+import PrintSheet from './export/PrintSheet';
+import { buildPdf, deliverPdf, type DeliverResult } from './export/pdf';
 
 const QTYPE_OPTS = QTYPES.map((q) => ({ v: q, label: q }));
 const MODE_OPTS: { v: Mode; label: string }[] = [
@@ -29,30 +31,137 @@ function Card({ title, children }: { title: ReactNode; children: ReactNode }) {
 export default function App() {
   const [sheet, dispatch] = useReducer(reducer, undefined, initialSheet);
   const [exported, setExported] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [pending, setPending] = useState<File | null>(null);
+  const [showHint, setShowHint] = useState(true);
 
   const act = (a: Action) => {
     dispatch(a);
     setExported(false);
   };
 
+  const dirty = hasContent(sheet) && !exported;
+
+  // Best effort only: desktop browsers honor this, iOS mostly does not.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 3500);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const finish = (r: DeliverResult, file: File) => {
+    if (r === 'needs-gesture') {
+      setPending(file);
+      return;
+    }
+    setPending(null);
+    if (r === 'shared' || r === 'downloaded') {
+      setExported(true);
+      setNotice(r === 'shared' ? '已匯出 PDF' : `已下載 ${file.name}`);
+    }
+    // 'cancelled': user closed the share sheet — stay "未匯出", no error.
+  };
+
+  const exportPdf = async () => {
+    if (busy) return;
+    setBusy(true);
+    setPending(null);
+    try {
+      const file = await buildPdf(sheet);
+      finish(await deliverPdf(file, sheet.title), file);
+    } catch (err) {
+      console.error(err);
+      setNotice('PDF 產生失敗，可改用選單中的「用系統列印」');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const newSheet = (next?: Sheet) => {
+    releaseShots(sheet.shots);
+    dispatch({ type: 'reset', sheet: next });
+    setExported(false);
+    setPending(null);
+  };
+
+  const loadSample = import.meta.env.DEV
+    ? async () => newSheet(await (await import('./sample')).sampleSheet())
+    : undefined;
+
   return (
-    <div className="app">
-      <TopBar
-        exported={exported}
-        busy={false}
-        needsConfirm={!exported}
-        onNew={() => {
-          releaseShots(sheet.shots);
-          dispatch({ type: 'reset' });
-          setExported(false);
-        }}
-        onExport={() => {}}
-        onPrint={() => window.print()}
-      />
-      <main className="page">
-        <Form sheet={sheet} act={act} />
-      </main>
-    </div>
+    <>
+      <div className="app">
+        <TopBar
+          exported={exported}
+          busy={busy}
+          needsConfirm={dirty}
+          onNew={() => newSheet()}
+          onExport={exportPdf}
+          onPrint={() => window.print()}
+          onSample={loadSample}
+        />
+        {showHint && (
+          <div className="banner-wrap">
+            <div className="banner" role="note">
+              <span>本工具不會儲存資料，完成後請立即匯出 PDF</span>
+              <button type="button" className="icon-btn" aria-label="關閉提示" onClick={() => setShowHint(false)}>
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        <main className="page">
+          <Form sheet={sheet} act={act} />
+          <div className="bottom-export">
+            <button type="button" className="btn btn-primary" onClick={exportPdf} disabled={busy}>
+              {busy ? '正在產生 PDF…' : '匯出 PDF'}
+            </button>
+          </div>
+        </main>
+        {busy && (
+          <div className="toast" role="status">
+            正在產生 PDF…
+          </div>
+        )}
+        {!busy && pending && (
+          <div className="toast" role="alertdialog" aria-label="PDF 已完成">
+            <span>PDF 已完成</span>
+            <button
+              type="button"
+              className="btn"
+              onClick={async () => {
+                const file = pending;
+                finish(await deliverPdf(file, sheet.title), file);
+              }}
+            >
+              分享 / 儲存
+            </button>
+            <button type="button" className="icon-btn" aria-label="取消" onClick={() => setPending(null)}>
+              ✕
+            </button>
+          </div>
+        )}
+        {!busy && !pending && notice && (
+          <div className="toast" role="status">
+            {notice}
+          </div>
+        )}
+      </div>
+      <div className="print-root">
+        <PrintSheet sheet={sheet} />
+      </div>
+    </>
   );
 }
 

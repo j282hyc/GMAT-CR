@@ -10,7 +10,6 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'script',
-      includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
         name: 'CR 筆記',
         short_name: 'CR 筆記',

@@ -18,8 +18,9 @@
   },
   "homepage": "https://github.com/j282hyc/GMAT-CR#readme",
   "dependencies": {
-    "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.1",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "harfbuzzjs": "^1.6.2",
+    "pdf-lib": "^1.17.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

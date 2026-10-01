@@ -30,14 +30,15 @@ export type Mode = '因果' | '判斷';
 
 export type TableKey = 'causal' | 'other' | 'revResult' | 'revReason';
 
-export interface Choice { note: string; v: Verdict }
+export interface Choice { text: string; note: string; v: Verdict }
 
 export interface Sheet {
   title: string;
   source: string;
   qtype: QType;
   result: Result;
-  shots: Shot[];
+  question: string; // 題目原文（題幹 + 問句），由複製貼上而來
+  shots: Shot[]; // 備用：題目無法複製文字時才貼截圖
   premise: string;
   argument: string;
   mode: Mode;
@@ -57,7 +58,7 @@ export interface Sheet {
 
 /** Fields that hold plain text and can be set with a generic `set` action. */
 export type TextField =
-  | 'title' | 'source' | 'premise' | 'argument' | 'otherNote' | 'judge' | 'analogy' | 'sample' | 'reflection';
+  | 'title' | 'source' | 'question' | 'premise' | 'argument' | 'otherNote' | 'judge' | 'analogy' | 'sample' | 'reflection';
 
 export function today(): string {
   const d = new Date();
@@ -69,12 +70,13 @@ export const emptyRow = (): Row => ({ r: '', e: '' });
 
 export function initialSheet(): Sheet {
   const choices = {} as Record<Letter, Choice>;
-  for (const l of LETTERS) choices[l] = { note: '', v: '' };
+  for (const l of LETTERS) choices[l] = { text: '', note: '', v: '' };
   return {
     title: `CR ${today()}`,
     source: '',
     qtype: 'Weaken',
     result: '',
+    question: '',
     shots: [],
     premise: '',
     argument: '',
@@ -102,7 +104,9 @@ export type Action =
   | { type: 'rowSet'; table: TableKey; index: number; key: keyof Row; value: string }
   | { type: 'rowAdd'; table: TableKey }
   | { type: 'rowRemove'; table: TableKey; index: number }
+  | { type: 'choiceText'; letter: Letter; value: string }
   | { type: 'choiceNote'; letter: Letter; value: string }
+  | { type: 'pasteQuestion'; question: string; choices: Partial<Record<Letter, string>> }
   | { type: 'choiceVerdict'; letter: Letter; value: Verdict }
   | { type: 'mine'; value: '' | Letter }
   | { type: 'correct'; value: '' | Letter }
@@ -131,6 +135,16 @@ export function reducer(s: Sheet, a: Action): Sheet {
       const rows = s[a.table].filter((_, i) => i !== a.index);
       return { ...s, [a.table]: rows.length ? rows : [emptyRow()] };
     }
+    case 'choiceText':
+      return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], text: a.value } } };
+    case 'pasteQuestion': {
+      const choices = { ...s.choices };
+      for (const l of LETTERS) {
+        const t = a.choices[l];
+        if (t !== undefined) choices[l] = { ...choices[l], text: t };
+      }
+      return { ...s, question: a.question, choices };
+    }
     case 'choiceNote':
       return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], note: a.value } } };
     case 'choiceVerdict':
@@ -158,8 +172,8 @@ export function hasContent(s: Sheet): boolean {
   if (s.shots.length) return true;
   if (s.title !== init.title && !blank(s.title)) return true;
   if (s.result || s.mine || s.correct) return true;
-  const texts = [s.source, s.premise, s.argument, s.otherNote, s.judge, s.analogy, s.sample, s.reflection];
+  const texts = [s.source, s.question, s.premise, s.argument, s.otherNote, s.judge, s.analogy, s.sample, s.reflection];
   if (texts.some((t) => !blank(t))) return true;
   if ([s.causal, s.other, s.revResult, s.revReason].some((rows) => filledRows(rows).length)) return true;
-  return LETTERS.some((l) => !blank(s.choices[l].note) || s.choices[l].v);
+  return LETTERS.some((l) => !blank(s.choices[l].text) || !blank(s.choices[l].note) || s.choices[l].v);
 }

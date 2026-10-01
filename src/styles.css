@@ -345,6 +345,24 @@ button:disabled { cursor: default; opacity: 0.55; }
   color: #fff;
 }
 
+/* ---------- Question text ---------- */
+.question-input .field textarea { min-height: 120px; }
+.backup-shots { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 4px; }
+.backup-shots > summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.backup-shots > summary::-webkit-details-marker { display: none; }
+.backup-shots > summary::before { content: '▸'; transition: transform 0.15s; }
+.backup-shots[open] > summary::before { transform: rotate(90deg); }
+.choice-text textarea { background: var(--accent-soft); }
+
 /* ---------- Chain tables ---------- */
 .chain { margin-top: 16px; }
 .chain-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }

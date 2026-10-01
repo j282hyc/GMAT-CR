@@ -29,7 +29,9 @@ export default defineConfig({
       workbox: {
         // Precache only the app's own build output. No runtime caching:
         // user content (screenshots, notes) never goes through the SW cache.
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest,ttf,wasm}'],
+        // The embedded PDF font (~7 MB) must be precached so export works offline.
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         runtimeCaching: [],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,

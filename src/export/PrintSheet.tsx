@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import { LETTERS, RESULTS, VERDICTS, filledRows, today, type Row, type Sheet } from '../sheet';
 
-// PDF / print-only layout. Always white background, fixed colors (never theme variables).
-// Every block that must not be split carries `data-break`: its top edge is a legal page-cut position.
-// The first row/paragraph of a section deliberately has no `data-break`, so a heading is never
-// left alone at the bottom of a page.
+// Print-only layout (fallback "用系統列印"; the PDF itself is built in pdf.ts). Always white background, fixed colors (never theme variables).
+// Blocks marked `data-break` get `break-inside: avoid` in print CSS so rows and paragraphs stay whole.
 
 const has = (s: string) => s.trim() !== '';
 
@@ -83,7 +81,7 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
   const resultLabel = RESULTS.find((r) => r.v === s.result)?.label;
   const verdictLabel = (v: string) => VERDICTS.find((x) => x.v === v)?.label ?? '';
   const choiceRows = LETTERS.filter(
-    (l) => has(s.choices[l].note) || s.choices[l].v || s.mine === l || s.correct === l,
+    (l) => has(s.choices[l].text) || has(s.choices[l].note) || s.choices[l].v || s.mine === l || s.correct === l,
   );
 
   return (
@@ -101,6 +99,8 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
           {s.correct && <span className="ps-pill is-plain">正解 {s.correct}</span>}
         </div>
       </header>
+
+      <TextSection title="題目" text={s.question} />
 
       {s.shots.map((shot, i) => (
         <figure className="ps-shot" data-break="" key={shot.id}>
@@ -136,7 +136,7 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
             <thead>
               <tr>
                 <th />
-                <th>筆記</th>
+                <th>選項 / 筆記</th>
                 <th>判定</th>
               </tr>
             </thead>
@@ -150,7 +150,12 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
                       {l}
                       {s.mine === l && <small>我選</small>}
                     </td>
-                    <td className="ps-pre">{s.choices[l].note}</td>
+                    <td className="ps-pre">
+                      {s.choices[l].text}
+                      {has(s.choices[l].note) && (
+                        <div className="ps-choice-note">筆記：{s.choices[l].note}</div>
+                      )}
+                    </td>
                     <td>{verdictLabel(s.choices[l].v)}</td>
                   </tr>
                 );

@@ -9,6 +9,7 @@ import ChainTable from './components/ChainTable';
 import ChoiceList from './components/ChoiceList';
 import TopBar from './components/TopBar';
 import ImagePaste from './components/ImagePaste';
+import QuestionInput from './components/QuestionInput';
 import { releaseShots } from './images';
 import PrintSheet from './export/PrintSheet';
 import { buildPdf, deliverPdf, type DeliverResult } from './export/pdf';
@@ -179,7 +180,7 @@ function Form({ sheet, act }: { sheet: Sheet; act: (a: Action) => void }) {
 
   return (
     <>
-      <Card title="題目">
+      <Card title="基本資料">
         <div className="row2">
           <label>
             <span className="lbl">標題</span>
@@ -200,16 +201,25 @@ function Form({ sheet, act }: { sheet: Sheet; act: (a: Action) => void }) {
         </div>
       </Card>
 
-      <Card title="截圖">
-        <ImagePaste
-          shots={sheet.shots}
-          onAdd={(shots) => act({ type: 'addShots', shots })}
-          onRemove={(id) => {
-            const shot = sheet.shots.find((s) => s.id === id);
-            if (shot) URL.revokeObjectURL(shot.url);
-            act({ type: 'removeShot', id });
-          }}
+      <Card title="題目文字">
+        <QuestionInput
+          value={sheet.question}
+          onChange={(value) => act({ type: 'set', field: 'question', value })}
+          onPasted={(question, choices) => act({ type: 'pasteQuestion', question, choices })}
+          onChoices={(choices) => act({ type: 'pasteQuestion', question: sheet.question, choices })}
         />
+        <details className="backup-shots" open={sheet.shots.length > 0 || undefined}>
+          <summary>題目截圖（備用：無法複製文字時使用）</summary>
+          <ImagePaste
+            shots={sheet.shots}
+            onAdd={(shots) => act({ type: 'addShots', shots })}
+            onRemove={(id) => {
+              const shot = sheet.shots.find((s) => s.id === id);
+              if (shot) URL.revokeObjectURL(shot.url);
+              act({ type: 'removeShot', id });
+            }}
+          />
+        </details>
       </Card>
 
       <Card title="Premise（前提 / 事實）">
@@ -253,6 +263,7 @@ function Form({ sheet, act }: { sheet: Sheet; act: (a: Action) => void }) {
           sheet={sheet}
           onMine={(v) => act({ type: 'mine', value: v })}
           onCorrect={(v) => act({ type: 'correct', value: v })}
+          onText={(letter, value) => act({ type: 'choiceText', letter, value })}
           onNote={(letter, value) => act({ type: 'choiceNote', letter, value })}
           onVerdict={(letter, value) => act({ type: 'choiceVerdict', letter, value })}
         />

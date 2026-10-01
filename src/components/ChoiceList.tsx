@@ -6,13 +6,14 @@ interface Props {
   sheet: Sheet;
   onMine: (v: '' | Letter) => void;
   onCorrect: (v: '' | Letter) => void;
+  onText: (l: Letter, v: string) => void;
   onNote: (l: Letter, v: string) => void;
   onVerdict: (l: Letter, v: Verdict) => void;
 }
 
 const LETTER_OPTS = LETTERS.map((l) => ({ v: l, label: l }));
 
-export default function ChoiceList({ sheet, onMine, onCorrect, onNote, onVerdict }: Props) {
+export default function ChoiceList({ sheet, onMine, onCorrect, onText, onNote, onVerdict }: Props) {
   const { mine, correct } = sheet;
   return (
     <div className="choices">
@@ -36,7 +37,14 @@ export default function ChoiceList({ sheet, onMine, onCorrect, onNote, onVerdict
               {l}
             </div>
             <div className="choice-body">
-              <Field value={sheet.choices[l].note} onChange={(v) => onNote(l, v)} placeholder={`(${l}) 筆記`} rows={1} />
+              <Field
+                className="choice-text"
+                value={sheet.choices[l].text}
+                onChange={(v) => onText(l, v)}
+                placeholder={`(${l}) 選項內容`}
+                rows={1}
+              />
+              <Field value={sheet.choices[l].note} onChange={(v) => onNote(l, v)} placeholder="筆記" rows={1} />
               <Chips
                 size="small"
                 label={`${l} 判定`}

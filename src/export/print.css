@@ -1,4 +1,4 @@
-/* PDF / print layout. Fixed colors only: the PDF is always white, whatever the system theme. */
+/* Print layout (system print fallback). Fixed colors only: the PDF is always white, whatever the system theme. */
 .ps {
   width: 794px; /* A4 width at 96dpi; padding ≈ 12mm side margins */
   padding: 0 45px 8px;
@@ -54,7 +54,7 @@
 .ps table {
   width: 100%;
   table-layout: fixed;
-  /* separate (not collapsed) borders: html2canvas drops some collapsed borders */
+  /* separate borders: avoids doubled lines in some print engines */
   border-collapse: separate;
   border-spacing: 0;
   border-top: 1px solid #c9ced4;
@@ -83,5 +83,6 @@
 .ps-note span { color: #555; }
 .ps-choices td.ps-letter { text-align: center; font-weight: 700; }
 .ps-choices td.ps-letter small { display: block; font-size: 10px; font-weight: 400; color: #555; }
+.ps-choice-note { color: #1f4e79; margin-top: 2px; }
 .ps-choices tr.is-correct td { background: #e3f4e7; }
 .ps-choices tr.is-wrong td { background: #fce6e6; }

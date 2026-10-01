@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type ClipboardEvent } from 'react';
 import ArrowAccessory from './ArrowAccessory';
 
 interface Props {
@@ -10,12 +10,17 @@ interface Props {
   rows?: number;
   label?: string;
   className?: string;
+  /**
+   * Intercept pasted plain text. Return the text to insert at the caret instead,
+   * or null to let the browser paste normally.
+   */
+  onPasteText?: (text: string) => string | null;
 }
 
 type El = HTMLTextAreaElement | HTMLInputElement;
 
 /** Text field that auto-grows (textarea) and shows the arrow accessory while focused. */
-export default function Field({ value, onChange, placeholder, single, rows = 2, label, className }: Props) {
+export default function Field({ value, onChange, placeholder, single, rows = 2, label, className, onPasteText }: Props) {
   const ref = useRef<El | null>(null);
   const caret = useRef<number | null>(null);
   const [focused, setFocused] = useState(false);
@@ -67,6 +72,13 @@ export default function Field({ value, onChange, placeholder, single, rows = 2, 
     onFocus: () => setFocused(true),
     onBlur: () => setFocused(false),
     onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+    onPaste: (e: ClipboardEvent<El>) => {
+      if (!onPasteText) return;
+      const replacement = onPasteText(e.clipboardData.getData('text/plain'));
+      if (replacement === null) return;
+      e.preventDefault();
+      insert(replacement);
+    },
   };
 
   return (

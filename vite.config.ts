@@ -1,10 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+// Single source of truth for the version shown in the app: package.json "version".
+import { version } from './package.json';
 
 // GitHub Pages serves the site under /GMAT-CR/
 export default defineConfig({
   base: '/GMAT-CR/',
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

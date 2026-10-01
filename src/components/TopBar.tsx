@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { APP_VERSION, BUILD_TIME } from '../version';
 
 interface Props {
   exported: boolean;
@@ -49,7 +50,12 @@ export default function TopBar({ exported, busy, needsConfirm, onNew, onExport, 
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <span className="app-name">CR 筆記</span>
+        <span className="app-name">
+          CR 筆記
+          <span className="app-version" title={`建置時間 ${BUILD_TIME}`}>
+            {APP_VERSION}
+          </span>
+        </span>
         <span className={`status${exported ? ' is-done' : ''}`} role="status">
           {exported ? '已匯出 ✓' : '未匯出'}
         </span>
@@ -81,6 +87,9 @@ export default function TopBar({ exported, busy, needsConfirm, onNew, onExport, 
                   載入範例（開發用）
                 </button>
               )}
+              <div className="menu-info">
+                {APP_VERSION} · 建置 {BUILD_TIME}
+              </div>
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import type { PDFDocument, PDFFont, PDFImage, PDFPage, RGB } from 'pdf-lib';
+import { APP_VERSION } from '../version';
 import { subsetFont } from './subset';
 import { LETTERS, QTYPES, RESULTS, VERDICTS, choiceFilled, filledRows, today, type Row, type Sheet, type Shot } from '../sheet';
 
@@ -408,7 +409,7 @@ export async function buildPdf(sheet: Sheet): Promise<File> {
   pdf.registerFontkit(fontkit);
   const font = await pdf.embedFont(subset, { subset: false });
   pdf.setTitle(sheet.title || 'CR');
-  pdf.setCreator('CR 筆記');
+  pdf.setCreator(`CR 筆記 ${APP_VERSION}`);
   pdf.setProducer('CR 筆記');
   pdf.setLanguage('zh-Hant');
 

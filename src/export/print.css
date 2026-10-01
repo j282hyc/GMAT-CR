@@ -86,3 +86,6 @@
 .ps-choice-note { color: #1f4e79; margin-top: 2px; }
 .ps-choices tr.is-correct td { background: #e3f4e7; }
 .ps-choices tr.is-wrong td { background: #fce6e6; }
+.ps-review { color: #8a5300; margin-top: 2px; }
+.ps .ps-bad { color: #c62828; }
+.ps .ps-good { color: #1e7b34; }

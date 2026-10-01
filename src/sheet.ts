@@ -1,6 +1,7 @@
 // Sheet model + reducer. Everything lives in React state only — nothing is persisted.
 
-export interface Row { r: string; e: string } // reason → result
+/** reason → result, plus a review comment (評語 / 修正), e.g. "bad example: off the chain". */
+export interface Row { r: string; e: string; n: string }
 
 export interface Shot { id: string; blob: Blob; url: string; width: number; height: number }
 
@@ -30,7 +31,11 @@ export type Mode = '因果' | '判斷';
 
 export type TableKey = 'causal' | 'other' | 'revResult' | 'revReason';
 
-export interface Choice { text: string; note: string; v: Verdict }
+/**
+ * One answer choice: option text, my first-pass note + verdict, and the review after checking
+ * the answer (correct verdict + what I got wrong).
+ */
+export interface Choice { text: string; note: string; v: Verdict; fix: Verdict; review: string }
 
 export interface Sheet {
   title: string;
@@ -66,11 +71,12 @@ export function today(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-export const emptyRow = (): Row => ({ r: '', e: '' });
+export const emptyRow = (): Row => ({ r: '', e: '', n: '' });
+export const emptyChoice = (): Choice => ({ text: '', note: '', v: '', fix: '', review: '' });
 
 export function initialSheet(): Sheet {
   const choices = {} as Record<Letter, Choice>;
-  for (const l of LETTERS) choices[l] = { text: '', note: '', v: '' };
+  for (const l of LETTERS) choices[l] = emptyChoice();
   return {
     title: `CR ${today()}`,
     source: '',
@@ -108,6 +114,8 @@ export type Action =
   | { type: 'choiceNote'; letter: Letter; value: string }
   | { type: 'pasteQuestion'; question: string; choices: Partial<Record<Letter, string>> }
   | { type: 'choiceVerdict'; letter: Letter; value: Verdict }
+  | { type: 'choiceFix'; letter: Letter; value: Verdict }
+  | { type: 'choiceReview'; letter: Letter; value: string }
   | { type: 'mine'; value: '' | Letter }
   | { type: 'correct'; value: '' | Letter }
   | { type: 'addShots'; shots: Shot[] }
@@ -149,6 +157,10 @@ export function reducer(s: Sheet, a: Action): Sheet {
       return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], note: a.value } } };
     case 'choiceVerdict':
       return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], v: a.value } } };
+    case 'choiceFix':
+      return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], fix: a.value } } };
+    case 'choiceReview':
+      return { ...s, choices: { ...s.choices, [a.letter]: { ...s.choices[a.letter], review: a.value } } };
     case 'mine':
       return { ...s, mine: a.value };
     case 'correct':
@@ -163,7 +175,8 @@ export function reducer(s: Sheet, a: Action): Sheet {
 }
 
 const blank = (v: string) => v.trim() === '';
-export const rowFilled = (r: Row) => !blank(r.r) || !blank(r.e);
+export const rowFilled = (r: Row) => !blank(r.r) || !blank(r.e) || !blank(r.n);
+export const choiceFilled = (c: Choice) => !blank(c.text) || !blank(c.note) || !!c.v || !!c.fix || !blank(c.review);
 export const filledRows = (rows: Row[]) => rows.filter(rowFilled);
 
 /** True when the user has entered anything beyond the defaults (used for the "新題目" guard). */
@@ -175,5 +188,5 @@ export function hasContent(s: Sheet): boolean {
   const texts = [s.source, s.question, s.premise, s.argument, s.otherNote, s.judge, s.analogy, s.sample, s.reflection];
   if (texts.some((t) => !blank(t))) return true;
   if ([s.causal, s.other, s.revResult, s.revReason].some((rows) => filledRows(rows).length)) return true;
-  return LETTERS.some((l) => !blank(s.choices[l].text) || !blank(s.choices[l].note) || s.choices[l].v);
+  return LETTERS.some((l) => choiceFilled(s.choices[l]));
 }

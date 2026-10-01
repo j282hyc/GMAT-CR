@@ -376,6 +376,20 @@ button:disabled { cursor: default; opacity: 0.55; }
 }
 .chain-cols { font-size: 12px; color: var(--muted); padding: 0 4px; }
 .chain-row { margin-top: 6px; }
+.chain-item + .chain-item { margin-top: 10px; padding-top: 4px; border-top: 1px dashed var(--line); }
+.chain-item > .review-field { margin-top: 6px; margin-right: calc(var(--tap) + 6px); }
+/* Review / correction fields: amber tint so corrections stand apart from first-pass notes */
+.review-field textarea { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 35%, var(--field-line)); }
+.verdict-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.verdict-label { font-size: 13px; color: var(--muted); width: 58px; flex-shrink: 0; }
+.review-box {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 45%, var(--line));
+}
+.review-box.is-wrong { border-style: solid; border-color: var(--bad); }
 .chain-arrow { text-align: center; padding-top: 10px; color: var(--muted); font-weight: 700; }
 .icon-btn {
   width: var(--tap);

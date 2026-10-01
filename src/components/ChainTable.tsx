@@ -27,13 +27,23 @@ export default function ChainTable({ title, hint, rows, onSet, onAdd, onRemove, 
         <span />
       </div>
       {rows.map((row, i) => (
-        <div className="chain-row" key={i}>
-          <Field value={row.r} onChange={(v) => onSet(i, 'r', v)} placeholder="reason" rows={1} />
-          <span className="chain-arrow" aria-hidden="true">→</span>
-          <Field value={row.e} onChange={(v) => onSet(i, 'e', v)} placeholder="result" rows={1} />
-          <button type="button" className="icon-btn" onClick={() => onRemove(i)} aria-label={`刪除第 ${i + 1} 列`}>
-            ✕
-          </button>
+        <div className="chain-item" key={i}>
+          <div className="chain-row">
+            <Field value={row.r} onChange={(v) => onSet(i, 'r', v)} placeholder="reason" rows={1} />
+            <span className="chain-arrow" aria-hidden="true">→</span>
+            <Field value={row.e} onChange={(v) => onSet(i, 'e', v)} placeholder="result" rows={1} />
+            <button type="button" className="icon-btn" onClick={() => onRemove(i)} aria-label={`刪除第 ${i + 1} 列`}>
+              ✕
+            </button>
+          </div>
+          <Field
+            className="review-field"
+            value={row.n}
+            onChange={(v) => onSet(i, 'n', v)}
+            placeholder="評語 / 修正（例：bad example，off the chain）"
+            label={`第 ${i + 1} 列評語`}
+            rows={1}
+          />
         </div>
       ))}
       <button type="button" className="add-row" onClick={onAdd}>

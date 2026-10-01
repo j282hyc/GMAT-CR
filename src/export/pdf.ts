@@ -1,6 +1,6 @@
 import type { PDFDocument, PDFFont, PDFImage, PDFPage, RGB } from 'pdf-lib';
 import { subsetFont } from './subset';
-import { LETTERS, QTYPES, RESULTS, VERDICTS, filledRows, today, type Row, type Sheet, type Shot } from '../sheet';
+import { LETTERS, QTYPES, RESULTS, VERDICTS, choiceFilled, filledRows, today, type Row, type Sheet, type Shot } from '../sheet';
 
 // Text-based PDF: real, selectable/searchable text set in an embedded (subsetted) Noto Sans TC.
 // Layout is done here by hand: content is a list of blocks; a block is never split across pages
@@ -28,20 +28,31 @@ interface Ctx {
   glyphs: Set<number>;
   embedImage: (shot: Shot) => Promise<PDFImage>;
 }
-let C: Record<'text' | 'muted' | 'accent' | 'line' | 'head' | 'ok' | 'okBg' | 'bad' | 'badBg' | 'guess' | 'boxBg' | 'white', Color>;
+let C: Record<'text' | 'muted' | 'accent' | 'line' | 'head' | 'ok' | 'okBg' | 'bad' | 'badBg' | 'guess' | 'boxBg' | 'review' | 'white', Color>;
 
 const hex = (rgb: Ctx['rgb'], h: string) =>
   rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
 
 // ---------- Text helpers ----------
-const SUBST: Record<string, string> = { '✗': '×', '✕': '×', '✘': '×', '✔': '✓', '\t': '  ' };
-const DROP = /[︎️‍​]/g;
+// Characters the font lacks, mapped to drawable look-alikes (anything else unknown prints as □).
+const SUBST: Record<string, string> = {
+  '✗': '×', '✕': '×', '✘': '×', '❌': '×', '✔': '✓', '✅': '✓', '☑': '✓',
+  '👉': '→', '👈': '←', '👆': '↑', '👇': '↓', '⭐': '*', '❗': '!', '❓': '?', '\t': '  ',
+};
+// Variation selectors, zero-width joiner/space: invisible, drop them.
+const DROP = new RegExp(`[${String.fromCharCode(0xfe0e, 0xfe0f, 0x200d, 0x200b)}]`, 'g');
+// Line/paragraph separators that some keyboards and copy sources insert instead of \n.
+const NEWLINES = new RegExp(String.raw`\r\n?|[` + String.fromCharCode(0x2028, 0x2029, 0x85) + ']', 'g');
 
 /** Map characters the font can't draw (emoji, etc.) to something it can. */
 function clean(ctx: Ctx, s: string): string {
   let out = '';
-  for (const ch of s.replace(DROP, '')) {
+  for (const ch of s.replace(NEWLINES, '\n').replace(DROP, '')) {
     const sub = SUBST[ch] ?? ch;
+    if (sub === '\n') {
+      out += sub;
+      continue;
+    }
     out += ctx.glyphs.has(sub.codePointAt(0)!) || sub === ' ' ? sub : '□';
   }
   return out;
@@ -357,7 +368,7 @@ async function toEmbeddable(blob: Blob): Promise<{ bytes: ArrayBuffer; kind: 'pn
 const STATIC_TEXT = [
   '題目 Premise Argument 原本因果 他因 他因是 weaken 因果倒反 — 原結果是原因 原原因是結果',
   'Original result is the reason Original reason is the result 判斷依據 類比差異 母個體差異',
-  '選項 / 筆記 判定 我選 正解 錯因 / 心得 備註： 筆記： 來源： 第 / 頁 reason result → □ × ✓　',
+  '選項 / 筆記 / 檢討 判定 我的判定 正確判定 評語 / 修正 檢討： 我選 正解 錯因 / 心得 備註： 筆記： 來源： 第 / 頁 reason result → □ × ✓　',
   ...QTYPES,
   ...RESULTS.map((r) => r.label),
   ...VERDICTS.map((v) => v.label),
@@ -414,7 +425,7 @@ export async function buildPdf(sheet: Sheet): Promise<File> {
   C = {
     text: h('#111111'), muted: h('#666666'), accent: h('#1f4e79'), line: h('#c3c9d0'), head: h('#f1f3f5'),
     ok: h('#1e7b34'), okBg: h('#e3f4e7'), bad: h('#c62828'), badBg: h('#fce6e6'), guess: h('#8a6d00'),
-    boxBg: h('#f4f8fc'), white: h('#ffffff'),
+    boxBg: h('#f4f8fc'), review: h('#8a5300'), white: h('#ffffff'),
   };
 
   const L = new Layout(pdf);
@@ -475,26 +486,32 @@ export async function buildPdf(sheet: Sheet): Promise<File> {
   L.placeAll(textSection(ctx, 'Argument', s.argument));
 
   // ----- Causal tables -----
-  const chainCols: Col[] = [{ w: 0.465 }, { w: 0.07, align: 'center' }, { w: 0.465 }];
   const cellW = (c: Col) => c.w * W - PAD_X * 2;
+  const label = (t: string): Cell => [{ text: t, color: C.muted, size: 8.5 }];
   const chain = (title: string, rows: Row[], hint?: string, note?: string) => {
     const filled = filledRows(rows);
     const hasNote = !!note && has(note);
     if (!filled.length && !hasNote) return;
     const hd = heading(ctx, title, hint);
     if (filled.length) {
+      // The 評語 / 修正 column only appears when some row in this table has one.
+      const withReview = filled.some((r) => has(r.n));
+      const cols: Col[] = withReview
+        ? [{ w: 0.33 }, { w: 0.05, align: 'center' }, { w: 0.33 }, { w: 0.29 }]
+        : [{ w: 0.465 }, { w: 0.07, align: 'center' }, { w: 0.465 }];
       const head = rowBlock(
         ctx,
-        chainCols,
-        [[{ text: 'reason', color: C.muted, size: 8.5 }], [], [{ text: 'result', color: C.muted, size: 8.5 }]],
+        cols,
+        [label('reason'), [], label('result'), ...(withReview ? [label('評語 / 修正')] : [])],
         { fill: C.head },
       );
       const body = filled.map((r) =>
-          rowBlock(ctx, chainCols, [
-            styled(ctx, r.r, C.text, BODY, cellW(chainCols[0])),
-            [{ text: '→', color: C.accent, size: BODY }],
-            styled(ctx, r.e, C.text, BODY, cellW(chainCols[2])),
-          ]),
+        rowBlock(ctx, cols, [
+          styled(ctx, r.r, C.text, BODY, cellW(cols[0])),
+          has(r.r) || has(r.e) ? [{ text: '→', color: C.accent, size: BODY }] : [],
+          styled(ctx, r.e, C.text, BODY, cellW(cols[2])),
+          ...(withReview ? [styled(ctx, r.n, C.review, BODY, cellW(cols[3]))] : []),
+        ]),
       );
       L.ensure(hd.h + head.h + Math.min(body[0].h, FULL_H / 3));
       L.place(hd);
@@ -521,34 +538,43 @@ export async function buildPdf(sheet: Sheet): Promise<File> {
   L.placeAll(textSection(ctx, '母個體差異', s.sample));
 
   // ----- Choices -----
-  const rows = LETTERS.filter(
-    (l) => has(s.choices[l].text) || has(s.choices[l].note) || s.choices[l].v || s.mine === l || s.correct === l,
-  );
+  const rows = LETTERS.filter((l) => choiceFilled(s.choices[l]) || s.mine === l || s.correct === l);
   if (rows.length) {
     const hd = heading(ctx, '選項');
-    const cols: Col[] = [{ w: 0.08, align: 'center' }, { w: 0.77 }, { w: 0.15 }];
+    // 正確判定 column only when some choice has been reviewed.
+    const withFix = rows.some((l) => s.choices[l].fix || has(s.choices[l].review));
+    const cols: Col[] = withFix
+      ? [{ w: 0.07, align: 'center' }, { w: 0.63 }, { w: 0.15 }, { w: 0.15 }]
+      : [{ w: 0.08, align: 'center' }, { w: 0.77 }, { w: 0.15 }];
     const head = rowBlock(
       ctx,
       cols,
-      [[], [{ text: '選項 / 筆記', color: C.muted, size: 8.5 }], [{ text: '判定', color: C.muted, size: 8.5 }]],
+      [[], label('選項 / 筆記 / 檢討'), label(withFix ? '我的判定' : '判定'), ...(withFix ? [label('正確判定')] : [])],
       { fill: C.head },
     );
     const verdict = (v: string) => VERDICTS.find((x) => x.v === v)?.label ?? '';
     const body = rows.map((l) => {
-        const ch = s.choices[l];
-        const correct = s.correct === l;
-        const wrong = s.mine === l && s.correct !== '' && s.mine !== s.correct;
-        const letter: Cell = [{ text: l, color: correct ? C.ok : wrong ? C.bad : C.text, size: 11 }];
-        if (s.mine === l) letter.push({ text: '我選', color: C.muted, size: 7.5 });
-        if (correct) letter.push({ text: '正解', color: C.ok, size: 7.5 });
-        const body: Cell = [
-          ...(has(ch.text) ? styled(ctx, ch.text, C.text, BODY, cellW(cols[1])) : []),
-          ...(has(ch.note) ? styled(ctx, `筆記：${ch.note}`, C.accent, BODY, cellW(cols[1])) : []),
-        ];
-        return rowBlock(ctx, cols, [letter, body, styled(ctx, verdict(ch.v), C.text, BODY, cellW(cols[2]))], {
-          fill: correct ? C.okBg : wrong ? C.badBg : undefined,
-        });
+      const ch = s.choices[l];
+      const correct = s.correct === l;
+      const wrong = s.mine === l && s.correct !== '' && s.mine !== s.correct;
+      const verdictWrong = !!ch.v && !!ch.fix && ch.v !== ch.fix;
+      const letter: Cell = [{ text: l, color: correct ? C.ok : wrong ? C.bad : C.text, size: 11 }];
+      if (s.mine === l) letter.push({ text: '我選', color: C.muted, size: 7.5 });
+      if (correct) letter.push({ text: '正解', color: C.ok, size: 7.5 });
+      const w1 = cellW(cols[1]);
+      const text: Cell = [
+        ...(has(ch.text) ? styled(ctx, ch.text, C.text, BODY, w1) : []),
+        ...(has(ch.note) ? styled(ctx, `筆記：${ch.note}`, C.accent, BODY, w1) : []),
+        ...(has(ch.review) ? styled(ctx, `檢討：${ch.review}`, C.review, BODY, w1) : []),
+      ];
+      const mineCell: Cell = ch.v
+        ? styled(ctx, verdictWrong ? `${verdict(ch.v)} ×` : verdict(ch.v), verdictWrong ? C.bad : C.text, BODY, cellW(cols[2]))
+        : [];
+      const fixCell: Cell = ch.fix ? styled(ctx, verdict(ch.fix), C.ok, BODY, cellW(cols[2])) : [];
+      return rowBlock(ctx, cols, [letter, text, mineCell, ...(withFix ? [fixCell] : [])], {
+        fill: correct ? C.okBg : wrong ? C.badBg : undefined,
       });
+    });
     L.ensure(hd.h + head.h + Math.min(body[0].h, FULL_H / 3));
     L.place(hd);
     table(L, head, body);

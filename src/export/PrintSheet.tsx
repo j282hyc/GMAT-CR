@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { LETTERS, RESULTS, VERDICTS, filledRows, today, type Row, type Sheet } from '../sheet';
+import { LETTERS, RESULTS, VERDICTS, choiceFilled, filledRows, today, type Row, type Sheet } from '../sheet';
 
 // Print-only layout (fallback "用系統列印"; the PDF itself is built in pdf.ts). Always white background, fixed colors (never theme variables).
 // Blocks marked `data-break` get `break-inside: avoid` in print CSS so rows and paragraphs stay whole.
@@ -40,28 +40,32 @@ function TextSection({ title, text, boxed }: { title: string; text: string; boxe
 function ChainBlock({ title, hint, rows, note }: { title: string; hint?: string; rows: Row[]; note?: string }) {
   const filled = filledRows(rows);
   if (!filled.length && !(note && has(note))) return null;
+  const withReview = filled.some((r) => has(r.n));
   return (
     <Section title={<>{title}{hint && <small>{hint}</small>}</>}>
       {filled.length > 0 && (
         <table className="ps-chain">
           <colgroup>
-            <col style={{ width: '47%' }} />
-            <col style={{ width: '6%' }} />
-            <col style={{ width: '47%' }} />
+            <col style={{ width: withReview ? '33%' : '47%' }} />
+            <col style={{ width: withReview ? '5%' : '6%' }} />
+            <col style={{ width: withReview ? '33%' : '47%' }} />
+            {withReview && <col style={{ width: '29%' }} />}
           </colgroup>
           <thead>
             <tr>
               <th>reason</th>
               <th />
               <th>result</th>
+              {withReview && <th>評語 / 修正</th>}
             </tr>
           </thead>
           <tbody>
             {filled.map((r, i) => (
               <tr key={i} data-break={i === 0 ? undefined : ''}>
                 <td>{r.r}</td>
-                <td className="ps-arrow">→</td>
+                <td className="ps-arrow">{has(r.r) || has(r.e) ? '→' : ''}</td>
                 <td>{r.e}</td>
+                {withReview && <td className="ps-review">{r.n}</td>}
               </tr>
             ))}
           </tbody>
@@ -80,9 +84,8 @@ function ChainBlock({ title, hint, rows, note }: { title: string; hint?: string;
 export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
   const resultLabel = RESULTS.find((r) => r.v === s.result)?.label;
   const verdictLabel = (v: string) => VERDICTS.find((x) => x.v === v)?.label ?? '';
-  const choiceRows = LETTERS.filter(
-    (l) => has(s.choices[l].text) || has(s.choices[l].note) || s.choices[l].v || s.mine === l || s.correct === l,
-  );
+  const choiceRows = LETTERS.filter((l) => choiceFilled(s.choices[l]) || s.mine === l || s.correct === l);
+  const withFix = choiceRows.some((l) => s.choices[l].fix || has(s.choices[l].review));
 
   return (
     <div className="ps">
@@ -129,21 +132,25 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
         <Section title="選項">
           <table className="ps-choices">
             <colgroup>
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '73%' }} />
-              <col style={{ width: '18%' }} />
+              <col style={{ width: withFix ? '7%' : '9%' }} />
+              <col style={{ width: withFix ? '63%' : '73%' }} />
+              <col style={{ width: withFix ? '15%' : '18%' }} />
+              {withFix && <col style={{ width: '15%' }} />}
             </colgroup>
             <thead>
               <tr>
                 <th />
-                <th>選項 / 筆記</th>
-                <th>判定</th>
+                <th>選項 / 筆記 / 檢討</th>
+                <th>{withFix ? '我的判定' : '判定'}</th>
+                {withFix && <th>正確判定</th>}
               </tr>
             </thead>
             <tbody>
               {choiceRows.map((l, i) => {
+                const c = s.choices[l];
                 const correct = s.correct === l;
                 const wrong = s.mine === l && s.correct !== '' && s.mine !== s.correct;
+                const verdictWrong = !!c.v && !!c.fix && c.v !== c.fix;
                 return (
                   <tr key={l} className={correct ? 'is-correct' : wrong ? 'is-wrong' : ''} data-break={i === 0 ? undefined : ''}>
                     <td className="ps-letter">
@@ -151,12 +158,15 @@ export default function PrintSheet({ sheet: s }: { sheet: Sheet }) {
                       {s.mine === l && <small>我選</small>}
                     </td>
                     <td className="ps-pre">
-                      {s.choices[l].text}
-                      {has(s.choices[l].note) && (
-                        <div className="ps-choice-note">筆記：{s.choices[l].note}</div>
-                      )}
+                      {c.text}
+                      {has(c.note) && <div className="ps-choice-note">筆記：{c.note}</div>}
+                      {has(c.review) && <div className="ps-review">檢討：{c.review}</div>}
                     </td>
-                    <td>{verdictLabel(s.choices[l].v)}</td>
+                    <td className={verdictWrong ? 'ps-bad' : undefined}>
+                      {verdictLabel(c.v)}
+                      {verdictWrong && ' ×'}
+                    </td>
+                    {withFix && <td className="ps-good">{verdictLabel(c.fix)}</td>}
                   </tr>
                 );
               })}

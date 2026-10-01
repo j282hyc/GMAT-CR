@@ -266,6 +266,8 @@ function Form({ sheet, act }: { sheet: Sheet; act: (a: Action) => void }) {
           onText={(letter, value) => act({ type: 'choiceText', letter, value })}
           onNote={(letter, value) => act({ type: 'choiceNote', letter, value })}
           onVerdict={(letter, value) => act({ type: 'choiceVerdict', letter, value })}
+          onFix={(letter, value) => act({ type: 'choiceFix', letter, value })}
+          onReview={(letter, value) => act({ type: 'choiceReview', letter, value })}
         />
       </Card>
 
